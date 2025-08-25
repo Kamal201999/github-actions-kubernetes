@@ -18,9 +18,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          organization: kamal201999
-          projectKey: github-actions-kubernetes
+          SONAR_ORGANIZATION: kamal201999
+          SONAR_PROJECT_KEY: github-actions-kubernetes
     
   build-and-deploy:
     needs: code-analysis
