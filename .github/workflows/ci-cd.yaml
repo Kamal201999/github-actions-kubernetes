@@ -15,13 +15,9 @@ jobs:
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
-        with:
-          projectKey: github-actions-kubernetes
-          organization: kamal201999
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
+              
   build-and-deploy:
     needs: code-analysis
     runs-on: ubuntu-latest
@@ -61,10 +57,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=Terraform init
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve
+        run: terraform -chdir=Terraform apply -auto-approve
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
