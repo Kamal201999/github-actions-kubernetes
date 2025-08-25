@@ -2,12 +2,27 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master" ] # Auo-Trigger on prod
+    branches: [ "master" ] # Added Trigger
   pull_request:
     branches: [ "master" ] 
   
 jobs:     # Part 1
-  build-and-deploy:
+ code-analysis:
+  runs-on: ubuntu-latest
+  steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: SonarQube Cloud Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+         ProjectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Added Secrets
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  
+ build-and-deploy:
+    needs: code-analysis  # Run Parallel jobs
     runs-on: ubuntu-latest
     strategy:
      matrix:
@@ -18,14 +33,6 @@ jobs:     # Part 1
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: SonarQube Cloud Scan
-        uses: sonarsource/sonarqube-scan-action@v2
-        with:
-         ProjectBaseDir: .
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -43,40 +50,63 @@ jobs:     # Part 1
          docker pull $IMAGE_NAME:${{ github.sha }}
          echo  "Docker image ready for kubernetes deployment"
 
-deploy:
- runs-on: ubuntu:latest
- needs: build-and-push
- steps:
-  - name: Checkout Repo
-    uses: actions/checkout@v3
+ infra:
+  runs-on: ubuntu:latest
+  needs: build-and-deploy  # Run Parallel jobs
+  steps:
+   - name: Checkout Repo
+     uses: actions/checkout@v3
 
-  - name: setup Terraform
-    uses: hashicorp/setup-terraform@v2
+   - name: setup Terraform
+     uses: hashicorp/setup-terraform@v2
 
-  - name: Terrafrom init
-    run: terraform -chdir=terraform init
+   - name: Terrafrom init
+     run: terraform -chdir=terraform init
 
-  - name: Terraform Apply
-    run: terraform -chdir=terraform apply -auto-approve
-    env:
-     AWS_ACCESS_KEY_ID: ${{ secrest.AWS_ACCESS_KEY_ID }}
-     AWS_secrest_ACCESS_KEY_ID: ${{ secrest. AWS_secrest_ACCESS_KEY_ID }}
-     AWS_DEFAULT_REGION: us-east-1
+   - name: Terraform Apply
+     run: terraform -chdir=terraform apply -auto-approve
+     env:  # Added Environment Variables
+      AWS_ACCESS_KEY_ID: ${{ secrest.AWS_ACCESS_KEY_ID }}
+      AWS_secrest_ACCESS_KEY_ID: ${{ secrest. AWS_secrest_ACCESS_KEY_ID }}
+      AWS_DEFAULT_REGION: us-east-1
 
-  - name: install Kubectl
-    run: |
-     curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-     chmod +x kubectl 
-     sudo mv kubectl /usr/local/bin/
+ kubernetes:
+   needs: infra  # Run Parallel jobs
+   runs-on: ubuntu:latest
+   steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
 
-  - name: deploy to kubernetes
-    run: |
+    - name: install Kubectl
+      run: |
+       curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+       chmod +x kubectl 
+       sudo mv kubectl /usr/local/bin/
+
+    - name: deploy to kubernetes
+      run: |
          kubectl apply -f k8s/deployment.yaml
          kubectl apply -f k8s/service.yaml
 
-  - name: Verify Pods
-    run: kubectl get pods -o wide
+    - name: Verify Pods
+      run: kubectl get pods -o wide
 
-  - name: Verify Service
-    run: kubectl get svc -o wide  
+    - name: Verify Service
+      run: kubectl get svc -o wide 
+
+ notify:  # Added Notification
+   needs: [code-analysis, build-and-deploy, infra, kubernetes ]
+   if: always() #Added error handling
+   runs-on: ubuntu-latest
+   steps: 
+    - name: send slack notification
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+       payload: |
+        {
+         "text": "Github Actions Pipeline Finished with status: ${{ job.status }}"
+        env:
+         SLACK_WEBHOOK_URL: $ {{ secrest.SLACK_WEBHOOK }}
+       
+   
          
