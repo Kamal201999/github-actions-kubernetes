@@ -14,14 +14,15 @@ jobs:
         uses: actions/checkout@v3
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        with:
-          sonar.projectKey: github-actions-kubernetes
-          sonar.organization: kamal201999
+        uses: SonarSource/sonarcloud-github-action@v2.0.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
+        with:
+          args: >
+            -Dsonar.projectKey: github-actions-kubernetes
+            -Dsonar.organization: kamal201999
+    
   build-and-deploy:
     needs: code-analysis
     runs-on: ubuntu-latest
