@@ -105,7 +105,7 @@ jobs:     # Part 1
        payload: |
         {
          "text": "Github Actions Pipeline Finished with status: ${{ job.status }}"
-        env:
+      env:
          SLACK_WEBHOOK_URL: $ {{ secrest.SLACK_WEBHOOK }}
        
    
