@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-kubernetes
+  labels: 
+    app: hello-kubernetes
 spec:
   replicas: 3
   selector:
@@ -14,6 +16,6 @@ spec:
     spec:
       containers:
         - name: hello-kubernetes
-          image: your-dockerhub-username/hello-kubernetes:latest
+          image: kamal201999/hello-kubernetes:latest
           ports:
             - containerPort: 3000
