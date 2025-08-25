@@ -17,9 +17,7 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_ORGANIZATION: kamal201999
-          SONAR_PROJECT_KEY: github-actions-kubernetes
-    
+              
   build-and-deploy:
     needs: code-analysis
     runs-on: ubuntu-latest
