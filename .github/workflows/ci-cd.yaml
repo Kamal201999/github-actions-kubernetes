@@ -16,7 +16,8 @@ jobs:     # Part 1
       - name: SonarQube Cloud Scan
         uses: sonarsource/sonarqube-scan-action@v2
         with:
-         ProjectBaseDir: .
+         projectKey: github-actions-kubernetes
+         organization: kamal201999
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Added Secrets
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
