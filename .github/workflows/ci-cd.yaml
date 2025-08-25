@@ -66,8 +66,8 @@ jobs:     # Part 1
    - name: Terraform Apply
      run: terraform -chdir=terraform apply -auto-approve
      env:  # Added Environment Variables
-      AWS_ACCESS_KEY_ID: ${{ secrest.AWS_ACCESS_KEY_ID }}
-      AWS_secrest_ACCESS_KEY_ID: ${{ secrest. AWS_secrest_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_secrets_ACCESS_KEY_ID: ${{ secrets. AWS_secrets_ACCESS_KEY_ID }}
       AWS_DEFAULT_REGION: us-east-1
 
  kubernetes:
@@ -106,7 +106,7 @@ jobs:     # Part 1
         {
          "text": "Github Actions Pipeline Finished with status: ${{ job.status }}"
       env:
-         SLACK_WEBHOOK_URL: $ {{ secrest.SLACK_WEBHOOK }}
+         SLACK_WEBHOOK_URL: $ {{ secrets.SLACK_WEBHOOK }}
        
    
          
