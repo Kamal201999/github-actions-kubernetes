@@ -2,19 +2,37 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - master
+    branches: [ "master" ] # Added Trigger
+  pull_request:
+    branches: [ "master" ] 
+  
+jobs:     # Part 1
+ code-analysis:
+  runs-on: ubuntu-latest
+  steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-jobs:
-  build-and-deploy:
+      - name: SonarQube Cloud Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+         ProjectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Added Secrets
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  
+ build-and-deploy:
+    needs: code-analysis  # Run Parallel jobs
     runs-on: ubuntu-latest
+    strategy:
+     matrix:
+      node-version: [16.x, 18.x]   # Matrix Builds
+    env:
+     IMAGE_NAME: kamal201999/hello-kubernetes
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -23,17 +41,72 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4
-        with:
-          push: true
-          tags: your-dockerhub-username/hello-kubernetes:latest
-
-      - name: Set up Kubectl
-        uses: azure/k8s-set-context@v1
-        with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
-
-      - name: Deploy
         run: |
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+         docker build -t $IMAGE_NAME:${{ github.sha }} .
+         docker push $IMAGE_NAME:${{ github.sha }}
+         
+      - name: Pull and Deploy
+        run: |
+         docker pull $IMAGE_NAME:${{ github.sha }}
+         echo  "Docker image ready for kubernetes deployment"
+
+ infra:
+  runs-on: ubuntu:latest
+  needs: build-and-deploy  # Run Parallel jobs
+  steps:
+   - name: Checkout Repo
+     uses: actions/checkout@v3
+
+   - name: setup Terraform
+     uses: hashicorp/setup-terraform@v2
+
+   - name: Terrafrom init
+     run: terraform -chdir=terraform init
+
+   - name: Terraform Apply
+     run: terraform -chdir=terraform apply -auto-approve
+     env:  # Added Environment Variables
+      AWS_ACCESS_KEY_ID: ${{ secrest.AWS_ACCESS_KEY_ID }}
+      AWS_secrest_ACCESS_KEY_ID: ${{ secrest. AWS_secrest_ACCESS_KEY_ID }}
+      AWS_DEFAULT_REGION: us-east-1
+
+ kubernetes:
+   needs: infra  # Run Parallel jobs
+   runs-on: ubuntu:latest
+   steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: install Kubectl
+      run: |
+       curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+       chmod +x kubectl 
+       sudo mv kubectl /usr/local/bin/
+
+    - name: deploy to kubernetes
+      run: |
+         kubectl apply -f k8s/deployment.yaml
+         kubectl apply -f k8s/service.yaml
+
+    - name: Verify Pods
+      run: kubectl get pods -o wide
+
+    - name: Verify Service
+      run: kubectl get svc -o wide 
+
+ notify:  # Added Notification
+   needs: [code-analysis, build-and-deploy, infra, kubernetes ]
+   if: always() #Added error handling
+   runs-on: ubuntu-latest
+   steps: 
+    - name: send slack notification
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+       payload: |
+        {
+         "text": "Github Actions Pipeline Finished with status: ${{ job.status }}"
+      env:
+         SLACK_WEBHOOK_URL: $ {{ secrest.SLACK_WEBHOOK }}
+       
+   
+         
