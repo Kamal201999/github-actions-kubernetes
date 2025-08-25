@@ -16,8 +16,8 @@ jobs:
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         with:
-          projectKey: github-actions-kubernetes
-          organization: kamal201999
+          sonar.projectKey: github-actions-kubernetes
+          sonar.organization: kamal201999
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
