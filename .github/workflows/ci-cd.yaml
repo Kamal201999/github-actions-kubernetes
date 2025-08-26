@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+tname: CI/CD Pipeline
 
 on:
   push:
@@ -56,16 +56,16 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Generate SSH key files
+      - name: Setup SSH key from GitHub Secrets
         run: |
-          ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
+          echo "${{ secrets.PRIVATE_KEY }}" > private.pem
           chmod 600 private.pem
-          PUBLIC_KEY=$(cat private.pem.pub)
-          PRIVATE_KEY_B64=$(base64 -w 0 private.pem)
-          echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV
-          echo "PRIVATE_KEY_B64=$PRIVATE_KEY_B64" >> $GITHUB_ENV
-          echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
+          echo "${{ secrets.PUBLIC_KEY }}" > public_key.pub
+          echo "KEY_NAME"=$"{{ secrets.KEY_NAME }}" >> $GITHUB_ENV
+          echo "PRIVATE_KEY_PATH=private.pem" >> $GITHUB_ENV
+          echo "PUBLIC_KEY=$(cat public_key.pub)" >> $GITHUB_ENV
 
+          
       - name: Terraform Init
         run: terraform -chdir=Terraform init
 
@@ -75,21 +75,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          echo "For to DEBUG"   # Added due to pipeline running long #66
-          echo "${{ env.PRIVATE_KEY_B64 }}" | base64 -d > private.pem
-          chmod 600 private.pem
-          ls -la private.pem
-          echo " Terraform directory structure:"
           terraform -chdir=Terraform apply -auto-approve \
             -var="key_name=${{ env.KEY_NAME }}" \
             -var="public_key=${{ env.PUBLIC_KEY }}" \
-            -var="private_key_path=private.pem" \
+            -var="private_key_path=${{ env.private_key_path }}"
             -input=false -lock=false -no-color
           echo " terraform apply completed"
-
-      - name: print terraform outputs
-        run: terraform -chdir=Terraform output
-
+          
   kubernetes:
     needs: infra
     runs-on: ubuntu-latest
