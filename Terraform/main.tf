@@ -1,21 +1,53 @@
 provider "aws" {
   region = "us-east-1"
-  # Optionally use environment credentials from GitHub Actions
 }
 
-# Use default VPC
-data "aws_vpc" "default" {
-  default = true
-}
+# Custom VPC Creation
+resource "aws_vpc" "custom_vpc" {
+  cidr_block = "10.0.0.0/16"
 
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
+  tags = {
+    Name = "custom-vpc"
   }
 }
 
-# Create SSH key pair using public_key string
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.custom_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "public-subnet"
+  }
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.custom_vpc.id
+
+  tags = {
+    Name = "igw"
+  }
+}
+
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.custom_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public_rta" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# SSH key pair resource
 resource "aws_key_pair" "deployer" {
   key_name   = var.key_name
   public_key = var.public_key
@@ -51,7 +83,7 @@ resource "aws_instance" "minikube_ec2" {
   ami                    = "ami-0c02fb55956c7d316"
   instance_type          = "t3.medium"
   key_name               = aws_key_pair.deployer.key_name
-  subnet_id              = data.aws_subnets.default.ids[0]
+  subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.minikube_sg.id]
 
   root_block_device {
