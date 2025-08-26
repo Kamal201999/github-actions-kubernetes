@@ -9,6 +9,6 @@ variable "public_key" {
 }
 
 variable "private_key_path" {
-  description = "Path to your private SSH key"
+  description = "Private key contents for remote-exec"
   type        = string
 }
