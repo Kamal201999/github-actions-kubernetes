@@ -10,8 +10,10 @@ data "aws_vpc" "default" {
 }
 
 # Use the first subnet in the default VPC
-data "aws_subnet_ids" "default" {
-  vpc_id = data.aws_vpc.default.id
+data "aws_subnets" "default" {
+ filter {
+   name = "vpc-id"
+  values = [data.aws_vpc.default.id]
 }
 
 # Create SSH key pair
@@ -52,7 +54,7 @@ resource "aws_instance" "minikube_ec2" {
   ami                         = "ami-0c02fb55956c7d316" # Ubuntu 20.04 LTS for us-east-1
   instance_type               = "t3.medium"
   key_name                    = aws_key_pair.deployer.key_name
-  subnet_id                   = data.aws_subnet_ids.default.ids[0]
+  subnet_id                   = data.aws_subnets.default.ids[0]
   vpc_security_group_ids      = [aws_security_group.minikube_sg.id]
 
   root_block_device {
