@@ -106,7 +106,7 @@ resource "aws_instance" "minikube_ec2" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key_path)
+      private_key = var.private_key_path
       host        = self.public_ip
       timeout     = "2m"
     }
