@@ -8,8 +8,8 @@ variable "public_key" {
   type        = string
 }
 
-variable "private_key_path" {
-  description = "Path to the private key file"
+variable "private_key" {
+  description = "Private SSH key contents (PEM format)"
   type        = string
   sensitive   = true
 }
