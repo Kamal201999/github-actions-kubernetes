@@ -74,3 +74,25 @@ resource "aws_instance" "minikube_ec2" {
       "sudo usermod -aG docker ubuntu",
       "curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64",
       "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
+      "sudo minikube start --driver=none",
+      "curl -LO https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
+      "chmod +x kubectl && sudo mv kubectl /usr/local/bin/"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file(var.private_key_path)
+      host        = self.public_ip
+      timeout     = "2m"
+    }
+  }
+
+  tags = {
+    Name = "minikube-ec2"
+  }
+}
+
+output "ec2_public_ip" {
+  value = aws_instance.minikube_ec2.public_ip
+}
