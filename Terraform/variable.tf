@@ -1,3 +1,4 @@
+
 variable "key_name" {
   description = "Name for the EC2 key pair"
   type        = string
