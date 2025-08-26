@@ -58,7 +58,7 @@ jobs:
 
       - name: Prepare SSH key files
         run: |
-         echo "${{ secrets.PRIVATE_KEY }}" | base64 -d > private.pem
+         echo "${{ secrets.PRIVATE_KEY }}" | base64 --decode > private.pem
          chmod 600 private.pem
               
       - name: Terraform Init
