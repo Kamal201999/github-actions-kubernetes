@@ -5,7 +5,12 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-  workflow_dispatch:   # 👈 Added manual trigger so you can re-run or destroy manually
+  workflow_dispatch:    # Added for optional manual trigger and destroy approval
+    inputs:
+      confirm_destroy:
+        description: "Do you want to destroy the infra after run?"
+        required: true
+        default: "false"
 
 jobs:
   code-analysis:
@@ -61,7 +66,7 @@ jobs:
         run: |
           ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
           chmod 600 private.pem
-          PUBLIC_KEY=$(cat private.pem.pub)   # 👈 FIX: use full file instead of awk
+          PUBLIC_KEY=$(cat private.pem.pub) 
           echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV
           echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
@@ -75,9 +80,9 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           terraform -chdir=Terraform apply -auto-approve \
-            -var="key_name=${{ env.KEY_NAME }}" \
-            -var="public_key=${{ env.PUBLIC_KEY }}" \
-            -var="private_key=$(cat private.pem)"   # 👈 FIX: send contents not path
+          -var="key_name=${{ env.KEY_NAME }}" \
+          -var="public_key=${{ env.PUBLIC_KEY }}" \
+          -var="private_key=$(cat private.pem)" 
 
   kubernetes:
     needs: infra
@@ -117,3 +122,21 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  destroy:
+    if: ${{ github.event.inputs.confirm_destroy == 'true' }}
+    needs: infra
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Destroy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: terraform -chdir=Terraform destroy -auto-approve
