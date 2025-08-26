@@ -75,11 +75,20 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
+          echo "For to DEBUG"   # Added due to pipeline running long #66
           echo "${{ env.PRIVATE_KEY_B64 }}" | base64 -d > private.pem
+          chmod 600 private.pem
+          ls -la private.pem
+          echo " Terraform directory structure:"
           terraform -chdir=Terraform apply -auto-approve \
             -var="key_name=${{ env.KEY_NAME }}" \
             -var="public_key=${{ env.PUBLIC_KEY }}" \
-            -var="private_key_path=private.pem"
+            -var="private_key_path=private.pem" \
+            -input=false -lock=false -no-color
+          echo " terraform apply completed"
+
+      - name: print terraform outputs
+        run: terraform -chdir=Terraform output
 
   kubernetes:
     needs: infra
