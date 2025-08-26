@@ -1,15 +1,27 @@
+variable "aws_access_key" {
+  description = "AWS access key"
+  type        = string
+  sensitive   = true
+}
+
+variable "aws_secret_key" {
+  description = "AWS secret key"
+  type        = string
+  sensitive   = true
+}
+
 variable "key_name" {
-  description = "Key pair name"
+  description = "Name for the EC2 key pair"
   type        = string
 }
 
 variable "public_key" {
-  description = "Public key for SSH access"
+  description = "Public SSH key contents (single-line OpenSSH format)"
   type        = string
 }
 
-variable "private_key" {   # 👈 FIX: changed from file path → raw string
-  description = "Private key contents for connecting to EC2"
+variable "private_key" {
+  description = "Private key contents for SSH connection"
   type        = string
   sensitive   = true
 }
