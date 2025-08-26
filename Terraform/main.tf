@@ -1,10 +1,12 @@
 provider "aws" {
-  region     = "us-east-1"
 }
 
 # Use the default VPC
 data "aws_vpc" "default" {
-  default = true
+ filter {
+   name = "isDefault"
+  values = ["true"]
+} 
 }
 
 # Use the first subnet in the default VPC
@@ -18,7 +20,7 @@ data "aws_subnets" "default" {
 # Create SSH key pair
 resource "aws_key_pair" "deployer" {
   key_name   = var.key_name
-  public_key = file(var.public_key_path)
+  public_key = var.public_key
 }
 
 # Security group to allow SSH and NodePort range
