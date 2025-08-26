@@ -1,120 +1,121 @@
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+push:
+branches: [ "master" ]
+pull_request:
+branches: [ "master" ]
 
 jobs:
-  code-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+code-analysis:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout Code
+uses: actions/checkout@v3
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+- name: SonarCloud Scan    
+    uses: SonarSource/sonarcloud-github-action@v2    
+    env:    
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+build-and-deploy:
+needs: code-analysis
+runs-on: ubuntu-latest
+strategy:
+matrix:
+node-version: [16.x, 18.x]
+env:
+IMAGE_NAME: kamal201999/hello-kubernetes
+steps:
+- name: Checkout Code
+uses: actions/checkout@v3
+
+- name: Log in to Docker Hub    
+    uses: docker/login-action@v2    
+    with:    
+      username: ${{ secrets.DOCKERHUB_USERNAME }}    
+      password: ${{ secrets.DOCKERHUB_TOKEN }}    
+
+  - name: Build and Push Docker Image    
+    run: |    
+      docker build -t $IMAGE_NAME:${{ github.sha }} .    
+      docker push $IMAGE_NAME:${{ github.sha }}    
+
+  - name: Pull and Deploy    
+    run: |    
+      docker pull $IMAGE_NAME:${{ github.sha }}    
+      echo "Docker image ready for Kubernetes deployment"
+
+infra:
+needs: build-and-deploy
+runs-on: ubuntu-latest
+steps:
+- name: Checkout Repo
+uses: actions/checkout@v3
+
+- name: Setup Terraform    
+    uses: hashicorp/setup-terraform@v2    
+
+  - name: Generate SSH key files    
+    run: |    
+     ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"    
+     chmod 600 private.pem    
+     PUBLIC_KEY=$(cat private.pem.pub)    
+     PRIVATE_KEY_B64=$(base64 -w 0 private.pem)    
+     echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV    
+     echo "PRIVATE_KEY_B64=$PRIVATE_KEY_B64" >> $GITHUB_ENV    
+     echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV    
               
-  build-and-deploy:
-    needs: code-analysis
-    runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: kamal201999/hello-kubernetes
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+  - name: Terraform Init    
+    run: terraform -chdir=Terraform init    
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  - name: Terraform Apply    
+    env:    
+     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}    
+     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}    
+     AWS_DEFAULT_REGION: us-east-1    
+    run: |    
+     echo "${{ env.PRIVATE_KEY_B64 }}" | base64 -d > private.pem    
+     terraform -chdir=Terraform apply -auto-approve \    
+     -var="key_name=${{ env.KEY_NAME }}" \    
+     -var="public_key=${{ env.PUBLIC_KEY }}" \    
+     -var="private_key_path=private.pem"
 
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t $IMAGE_NAME:${{ github.sha }} .
-          docker push $IMAGE_NAME:${{ github.sha }}
+kubernetes:
+needs: infra
+runs-on: ubuntu-latest
+steps:
+- name: Checkout Repo
+uses: actions/checkout@v3
 
-  infra:
-    needs: build-and-deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+- name: Install Kubectl    
+    run: |    
+      curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"    
+      chmod +x kubectl    
+      sudo mv kubectl /usr/local/bin/    
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+  - name: Deploy to Kubernetes    
+    run: |    
+      kubectl apply -f k8s/deployment.yaml    
+      kubectl apply -f k8s/service.yaml    
 
-      - name: Generate SSH key files
-        run: |
-          ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
-          chmod 600 private.pem
-          echo "PUBLIC_KEY=$(cat private.pem.pub)" >> $GITHUB_ENV
-          echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
+  - name: Verify Pods    
+    run: kubectl get pods -o wide    
 
-      - name: Terraform Init
-        run: terraform -chdir=Terraform init
+  - name: Verify Service    
+    run: kubectl get svc -o wide
 
-      - name: Terraform Apply
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: |
-          terraform -chdir=Terraform apply -auto-approve \
-          -var="key_name=${{ env.KEY_NAME }}" \
-          -var="public_key=${{ env.PUBLIC_KEY }}" \
-          -var="private_key=$(cat private.pem)"
-
-      - name: Save Terraform outputs
-        id: tf-output
-        run: |
-          echo "EC2_IP=$(terraform -chdir=Terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
-
-  kubernetes:
-    needs: infra
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
-
-      - name: Install SSH client
-        run: sudo apt-get install -y openssh-client
-
-      - name: Configure Minikube on EC2
-        run: |
-          chmod 600 private.pem
-          ssh -o StrictHostKeyChecking=no -i private.pem ubuntu@${{ env.EC2_IP }} << 'EOF'
-            sudo apt-get update -y
-            sudo apt-get install -y docker.io conntrack
-            curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-            sudo install minikube-linux-amd64 /usr/local/bin/minikube
-            minikube start --driver=docker
-          EOF
-
-      - name: Deploy to Kubernetes
-        run: |
-          ssh -o StrictHostKeyChecking=no -i private.pem ubuntu@${{ env.EC2_IP }} << 'EOF'
-            kubectl apply -f ~/app/k8s/deployment.yaml
-            kubectl apply -f ~/app/k8s/service.yaml
-            kubectl get pods -o wide
-            kubectl get svc -o wide
-          EOF
-
-  notify:
-    needs: [code-analysis, build-and-deploy, infra, kubernetes]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": "GitHub Actions Pipeline Finished with status: ${{ job.status }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+notify:
+needs: [code-analysis, build-and-deploy, infra, kubernetes]
+if: always()
+runs-on: ubuntu-latest
+steps:
+- name: Send Slack Notification
+uses: slackapi/slack-github-action@v1.24.0
+with:
+payload: |
+{
+"text": "GitHub Actions Pipeline Finished with status: ${{ job.status }}"
+}
+env:
+SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
