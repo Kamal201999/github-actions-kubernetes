@@ -58,11 +58,11 @@ jobs:
 
       - name: Generate SSH key files
         run: |
-         ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "ci-cicd"
+         ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
          chmod 600 private.pem
          PUBLIC_KEY=$(awk '{print $1,$2,$3}' private.pem.pub)
          echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV
-         echo "KEY_NAME=ci-cicd-${{ github.run_id }}" >> $GITHUB_ENV
+         echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
       - name: Terraform Init
         run: terraform -chdir=Terraform init
