@@ -52,7 +52,7 @@ jobs:
           docker pull $IMAGE_NAME:${{ github.sha }}
           echo "Docker image ready for Kubernetes deployment"
 
-  infra:
+  IAC:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
@@ -82,10 +82,10 @@ jobs:
           terraform -chdir=Terraform apply -auto-approve \
           -var="key_name=${{ env.KEY_NAME }}" \
           -var="public_key=${{ env.PUBLIC_KEY }}" \
-          -var="private_key=$(cat private.pem)" 
+          -var="private_key_path=../private.pem"
 
   kubernetes:
-    needs: infra
+    needs: IAC
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -109,7 +109,7 @@ jobs:
         run: kubectl get svc -o wide
 
   notify:
-    needs: [code-analysis, build-and-deploy, infra, kubernetes]
+    needs: [code-analysis, build-and-deploy, IAC, kubernetes]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -125,7 +125,7 @@ jobs:
 
   destroy:
     if: ${{ github.event.inputs.confirm_destroy == 'true' }}
-    needs: infra
+    needs: IAC
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
