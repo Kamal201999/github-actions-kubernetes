@@ -61,7 +61,9 @@ jobs:
          ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
          chmod 600 private.pem
          PUBLIC_KEY=$(cat private.pem.pub)
+         PRIVATE_KEY_B64=$(base64 -w 0 private.pem)
          echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV
+         echo "PRIVATE_KEY_B64=$PRIVATE_KEY_B64" >> $GITHUB_ENV
          echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
       - name: Terraform Init
@@ -73,6 +75,7 @@ jobs:
          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
          AWS_DEFAULT_REGION: us-east-1
         run: |
+         echo "${{ env.PRIVATE_KEY_B64 }}" | base64 -d > private.pem
          terraform -chdir=Terraform apply -auto-approve \
          -var="key_name=${{ env.KEY_NAME }}" \
          -var="public_key=${{ env.PUBLIC_KEY }}" \
