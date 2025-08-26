@@ -1,39 +1,17 @@
 provider "aws" {
-  }
-
-# Create a new VPC
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "ci-cicd-vpc"
-  }
+  region = var.aws_region
 }
 
-# Create a public subnet
-resource "aws_subnet" "main" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "us-east-1a"
-
-  tags = {
-    Name = "ci-cicd-subnet"
-  }
-}
-
-# key pair
+# EC2 Key Pair
 resource "aws_key_pair" "deployer" {
   key_name   = var.key_name
   public_key = var.public_key
 }
 
-# Security group
-resource "aws_security_group" "minikube_sg" {
-  name        = "minikube-sg"
-  vpc_id      = aws_vpc.main.id
+# Security Group for EC2
+resource "aws_security_group" "allow_ssh" {
+  name        = "allow_ssh"
+  description = "Allow SSH and Kubernetes ports"
 
   ingress {
     from_port   = 22
@@ -57,25 +35,19 @@ resource "aws_security_group" "minikube_sg" {
   }
 }
 
-# EC2 Instance
+# EC2 Instance (Ubuntu)
 resource "aws_instance" "minikube_ec2" {
-  ami                    = "ami-0c02fb55956c7d316"
-  instance_type          = "t3.medium"
-  key_name               = aws_key_pair.deployer.key_name
-  subnet_id              = aws_subnet.main.id
-  vpc_security_group_ids = [aws_security_group.minikube_sg.id]
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  key_name      = aws_key_pair.deployer.key_name
+  security_groups = [aws_security_group.allow_ssh.name]
 
-  root_block_device {
-    volume_size = 20
+  tags = {
+    Name = "minikube-instance"
   }
+}
 
-tags = {
-    Name = "minikube-ec2"
-  }
-
-
-# Output EC2 public IP
+# Output EC2 Public IP
 output "ec2_public_ip" {
   value = aws_instance.minikube_ec2.public_ip
-}
 }
