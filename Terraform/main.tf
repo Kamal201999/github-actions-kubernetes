@@ -56,6 +56,7 @@ resource "aws_key_pair" "deployer" {
 resource "aws_security_group" "minikube_sg" {
   name        = "minikube-sg"
   description = "Allow SSH and Kubernetes"
+  vpc_id = aws_vpc.custom_vpc.id
 
   ingress {
     from_port   = 22
