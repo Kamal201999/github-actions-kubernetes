@@ -62,14 +62,18 @@ jobs:
          chmod 600 private.pem
               
       - name: Terraform Init
+        run: terraform -chdir=Terraform init
+
+      - name: Terraform Apply
         env:
          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
          AWS_DEFAULT_REGION: us-east-1
-        run: terraform -chdir=Terraform init
-
-      - name: Terraform Apply
-        run: terraform -chdir=Terraform apply -auto-approve -var="key_name=${{ secrets.KEY_NAME }}" -var="public_key=${{ secrets.PUBLIC_KEY }}" -var="private_key_path=private.pem"
+        run: |
+         terraform -chdir=Terraform apply -auto-approve \
+         -var="key_name=${{ secrets.KEY_NAME }}" \
+         -var="public_key=${{ secrets.PUBLIC_KEY }}" \
+         -var="private_key_path=private.pem"
 
   kubernetes:
     needs: infra
