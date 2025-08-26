@@ -24,6 +24,8 @@ jobs:
     strategy:
       matrix:
         node-version: [16.x, 18.x]
+    env:
+      IMAGE_NAME: kamal201999/hello-kubernetes
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -36,13 +38,11 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          IMAGE_NAME=kamal201999/hello-kubernetes
           docker build -t $IMAGE_NAME:${{ github.sha }} .
           docker push $IMAGE_NAME:${{ github.sha }}
 
       - name: Pull and Deploy
         run: |
-          IMAGE_NAME=kamal201999/hello-kubernetes
           docker pull $IMAGE_NAME:${{ github.sha }}
           echo "Docker image ready for Kubernetes deployment"
 
@@ -55,6 +55,7 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+
       - name: Generate SSH key files
         run: |
           ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
@@ -90,4 +91,32 @@ jobs:
       - name: Install Kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-         
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Verify Pods
+        run: kubectl get pods -o wide
+
+      - name: Verify Service
+        run: kubectl get svc -o wide
+
+  notify:
+    needs: [code-analysis, build-and-deploy, infra, kubernetes]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "GitHub Actions Pipeline Finished with status: ${{ job.status }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          
