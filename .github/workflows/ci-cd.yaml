@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:   # 👈 Added manual trigger so you can re-run or destroy manually
 
 jobs:
   code-analysis:
@@ -17,7 +18,7 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+              
   build-and-deploy:
     needs: code-analysis
     runs-on: ubuntu-latest
@@ -56,16 +57,14 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Setup SSH key from GitHub Secrets
+      - name: Generate SSH key files
         run: |
-          echo "${{ secrets.PRIVATE_KEY }}" > private.pem
+          ssh-keygen -t rsa -b 4096 -m PEM -f private.pem -N "" -C "deployer"
           chmod 600 private.pem
-          echo "${{ secrets.PUBLIC_KEY }}" > public_key.pub
-          echo "KEY_NAME"=$"{{ secrets.KEY_NAME }}" >> $GITHUB_ENV
-          echo "PRIVATE_KEY_PATH=private.pem" >> $GITHUB_ENV
-          echo "PUBLIC_KEY=$(cat public_key.pub)" >> $GITHUB_ENV
-
-          
+          PUBLIC_KEY=$(cat private.pem.pub)   # 👈 FIX: use full file instead of awk
+          echo "PUBLIC_KEY=$PUBLIC_KEY" >> $GITHUB_ENV
+          echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
+              
       - name: Terraform Init
         run: terraform -chdir=Terraform init
 
@@ -78,10 +77,8 @@ jobs:
           terraform -chdir=Terraform apply -auto-approve \
             -var="key_name=${{ env.KEY_NAME }}" \
             -var="public_key=${{ env.PUBLIC_KEY }}" \
-            -var="private_key_path=${{ env.private_key_path }}"
-            -input=false -lock=false -no-color
-          echo " terraform apply completed"
-          
+            -var="private_key=$(cat private.pem)"   # 👈 FIX: send contents not path
+
   kubernetes:
     needs: infra
     runs-on: ubuntu-latest
@@ -120,4 +117,3 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-          
