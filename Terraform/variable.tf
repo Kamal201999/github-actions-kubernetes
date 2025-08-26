@@ -3,8 +3,8 @@ variable "key_name" {
   type        = string
 }
 
-variable "public_key_path" {
-  description = "Path to your public SSH key"
+variable "public_key" {
+  description = "public SSH key content"
   type        = string
 }
 
