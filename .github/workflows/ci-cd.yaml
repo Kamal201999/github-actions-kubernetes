@@ -71,7 +71,7 @@ jobs:
          AWS_DEFAULT_REGION: us-east-1
         run: |
          terraform -chdir=Terraform apply -auto-approve \
-         -var="key_name=${{ secrets.KEY_NAME }}" \
+         -var="key_name=${{ secrets.KEY_NAME }}-${{ github.run_id }}" \
          -var="public_key=${{ secrets.PUBLIC_KEY }}" \
          -var="private_key_path=private.pem"
 
