@@ -9,6 +9,6 @@ variable "public_key" {
 }
 
 variable "private_key_path" {
-  description = "Private key contents for remote-exec"
+  description = "Private key contents for connecting EC2"
   type        = string
 }
