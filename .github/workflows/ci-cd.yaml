@@ -64,9 +64,9 @@ jobs:
 
       - name: Configure SSH Keys from Secrets
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private.pem
+          echo "${{ secrets.PRIVATE_KEY }}" > private.pem
           chmod 600 private.pem
-          echo "PUBLIC_KEY=${{ secrets.SSH_PUBLIC_KEY }}" >> $GITHUB_ENV
+          echo "PUBLIC_KEY=${{ secrets.PUBLIC_KEY }}" >> $GITHUB_ENV
           echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
       - name: Terraform Init
