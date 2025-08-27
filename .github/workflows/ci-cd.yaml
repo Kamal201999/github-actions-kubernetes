@@ -103,8 +103,13 @@ jobs:
 
       - name: Validate and Test SSH Key 
         run: |
+          set -e
           ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID" && exit 1)
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} "echo ssh connection successfull"
+          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} "echo connected"; then echo "its ubuntu"
+          elif ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ needs.IAC.outputs.ec2_public_ip }} "echo connected"; then "its ec2-user"
+          else echo "ssh failed"
+          exit 1
+          fi          
         
       - name: Deploy to Kubernetes
         run: |
