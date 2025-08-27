@@ -103,18 +103,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ec2-ip
-          path: ec2_ip_dir        
-        
-      - name: display
+          path: ec2_data
+
+      - name: Extract EC2 IP from File
+        id: extract_ip
         run: |
-          FILE=$(find ec2_ip_dir -name "ec2_ip.txt")
-          if [ -z "$FILE" ]; then
-             echo "ERROR: File not found"
-             exit 1
-          else
-              echo "Found"
-              cat "$FILE"
-          fi
+          EC2_IP=$(sed -n 's/.*stdout:[[:space:]]*\([0-9.]*\).*/\1/p' ec2_data/ec2_ip.txt)
+          echo "EC2 IP extracted: $EC2_IP"
+          echo "EC2_IP=$EC2_IP" >> $GITHUB_ENV
 
       - name: Setup SSH Key
         run: |
@@ -122,52 +118,17 @@ jobs:
           echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Validate and Test SSH Key
+      - name: SSH and Deploy to Kubernetes
         run: |
-          set -e
-          ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID SSH KEY" && exit 1)
-
-          EC2_IP=$(cat ec2_ip.txt | tr -d '\n' | tr -d '\r')
-          echo "Resolved EC2 IP: $EC2_IP"
-          
-          echo "Trying SSH as ubuntu@${EC2_IP}..."
-          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP "echo connected"; then
-            echo "Connected as ubuntu"
-            echo "USER=ubuntu" >> $GITHUB_ENV
-          else
-            echo "Trying SSH as ec2-user@${EC2_IP}..."
-            if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@$EC2_IP "echo connected"; then
-              echo "Connected as ec2-user"
-              echo "USER=ec2-user" >> $GITHUB_ENV
-            else
-              echo "SSH connection failed"
-              exit 1
-            fi
-          fi
-
-      - name: Deploy to Kubernetes
-        run: |
-          EC2_IP=$(cat ec2_ip.txt | tr -d '\n' | tr -d '\r')
-          USER="${{ env.USER }}"
-
-          echo "Copying Kubernetes manifests to EC2..."
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ${USER}@${EC2_IP}:/home/${USER}/
-
-          echo "Starting remote Kubernetes deployment..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${USER}@${EC2_IP} <<EOF
-            cd /home/${USER}
-            echo "Applying deployment.yaml..."
+          echo "Connecting to $EC2_IP"
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP <<EOF
+            cd /home/ubuntu
             kubectl apply -f deployment.yaml
-
-            echo "Applying service.yaml..."
             kubectl apply -f service.yaml
-
-            echo "POD VERIFICATION"
             kubectl get pods -o wide
-
-            echo "SERVICE VERIFICATION"
             kubectl get svc -o wide
           EOF
+
 
   notify:
     needs: [code-analysis, build-and-deploy, IAC, kubernetes]
