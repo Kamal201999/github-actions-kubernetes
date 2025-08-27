@@ -90,43 +90,68 @@ jobs:
           echo "-----SUCCESSFULLY COMPLETED CREATION-----"
           
   kubernetes:
-    needs: IAC
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+   needs: IAC
+   runs-on: ubuntu-latest
+   steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
 
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - name: Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
 
-      - name: Validate and Test SSH Key 
-        run: |
-          set -e
-          ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID" && exit 1)
-          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} "echo connected"; then echo "its ubuntu"
-          elif ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ needs.IAC.outputs.ec2_public_ip }} "echo connected"; then "its ec2-user"
-          else echo "ssh failed"
-          exit 1
-          fi          
-        
-      - name: Deploy to Kubernetes
-        run: |
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@${{ needs.IAC.outputs.ec2_public_ip }}:/home/ubuntu/   # Copy process
-           echo "-----STARTED APPLYING THE MANIFESTS-----"
-           
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} <<EOF 
-           cd/home/ubuntu
-           kubectl apply -f deployment.yaml
-           kubectl apply -f service.yaml
-          
-           echo "-----POD VERIFICATION-----"
-           kubectl get pods -o wide
+    - name: Debug EC2 IP
+      run: |
+       echo "EC2 IP: ${{ needs.IAC.outputs.ec2_public_ip }}"
 
-           echo "-----SERVICE VERIFICATION-----"
-           kubectl get svc -o wide
-          EOF 
+    - name: Validate and Test SSH Key
+      run: |
+        set -e
+        ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID SSH KEY" && exit 1)
+
+        EC2_IP="${{ needs.IAC.outputs.ec2_public_ip }}"
+
+        echo "Trying SSH as ubuntu@${EC2_IP}..."
+        if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP "echo connected"; then
+          echo "Connected as ubuntu"
+          echo "USER=ubuntu" >> $GITHUB_ENV
+        else
+          echo "Trying SSH as ec2-user@${EC2_IP}..."
+          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@$EC2_IP "echo connected"; then
+            echo "Connected as ec2-user"
+            echo "USER=ec2-user" >> $GITHUB_ENV
+          else
+            echo "SSH connection failed"
+            exit 1
+          fi
+        fi
+
+    - name: Deploy to Kubernetes
+      run: |
+        EC2_IP="${{ needs.IAC.outputs.ec2_public_ip }}"
+        USER="${{ env.USER }}"
+
+        echo "Copying Kubernetes manifests to EC2..."
+        scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ${USER}@${EC2_IP}:/home/${USER}/
+
+        echo "Starting remote Kubernetes deployment..."
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${USER}@${EC2_IP} <<EOF
+          cd /home/${USER}
+          echo "Applying deployment.yaml..."
+          kubectl apply -f deployment.yaml
+
+          echo "Applying service.yaml..."
+          kubectl apply -f service.yaml
+
+          echo "POD VERIFICATION"
+          kubectl get pods -o wide
+
+          echo "SERVICE VERIFICATION"
+          kubectl get svc -o wide
+        EOF
+ 
 
   notify:
     needs: [code-analysis, build-and-deploy, IAC, kubernetes]
