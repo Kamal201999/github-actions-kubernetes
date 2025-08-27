@@ -101,6 +101,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
 
+      - name: Validate and Test SSH Key 
+        run: |
+          ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID" && exit 1)
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} "echo ssh connection successfull"
+        
       - name: Deploy to Kubernetes
         run: |
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@${{ needs.IAC.outputs.ec2_public_ip }}:/home/ubuntu/   # Copy process
