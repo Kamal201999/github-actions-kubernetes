@@ -61,13 +61,8 @@ jobs:
       - name: Configure SSH Keys from Secrets
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf "%s\n" "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          {
-          echo 'PRIVATE_KEY<<EOF'    # Added due to multiline issue
-          echo "${{ secrets.PRIVATE_KEY }}"
-          echo 'EOF'        
-          } >> $GITHUB_ENV
           echo "PUBLIC_KEY=${{ secrets.PUBLIC_KEY }}" >> $GITHUB_ENV
           echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
@@ -104,7 +99,7 @@ jobs:
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf "%s\n" "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
       - name: Deploy to Kubernetes
