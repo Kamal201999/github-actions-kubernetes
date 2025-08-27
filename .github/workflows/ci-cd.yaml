@@ -55,6 +55,8 @@ jobs:
   IAC:
     needs: build-and-deploy
     runs-on: ubuntu-latest
+    outputs:
+      ec2_public_ip: ${{ steps.terraform_apply.outputs.ec2_public_ip }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
@@ -93,6 +95,9 @@ jobs:
           -var="key_name=${{ env.KEY_NAME }}" \
           -var="public_key=${{ env.PUBLIC_KEY }}" \
           -var="private_key=${{ env.PRIVATE_KEY }}"
+
+          ec2_ip=$(terraform -chdir=Terraform output -raw ec2_public_ip)
+          echo "::set-output name=ec2_public_ip::$ec2_ip"
           echo "-----SUCCESSFULLY COMPLETED CREATION-----"
           
   kubernetes:
@@ -102,21 +107,24 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Setup Kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-         version: 'v1.33.3'
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
       - name: Deploy to Kubernetes
         run: |
+         scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -r k8s ubuntu@${{ needs.IAC.output.ec2_public_ip }} << 'EOF'
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
+          
+          echo "-----POD VERIFICATION-----"
+          kubectl get pods -o wide
 
-      - name: Verify Pods
-        run: kubectl get pods -o wide
-
-      - name: Verify Service
-        run: kubectl get svc -o wide
+          echo "-----SERVICE VERIFICATION-----"
+          kubectl get svc -o wide
+         EOF 
 
   notify:
     needs: [code-analysis, build-and-deploy, IAC, kubernetes]
@@ -135,7 +143,7 @@ jobs:
 
   destroy:
     name: Destroy infra on failure
-    if: failure() && github.event.inputs.confirm_destroy == 'true'
+    if: failure()
     needs: [IAC, kubernetes, notify]
     runs-on: ubuntu-latest
     steps:
