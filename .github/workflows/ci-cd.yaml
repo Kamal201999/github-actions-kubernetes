@@ -142,6 +142,8 @@ jobs:
     if: failure()
     needs: [IAC, kubernetes, notify]
     runs-on: ubuntu-latest
+    env: 
+     KEY_NAME: deployer-${{ github.run_id }}
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
@@ -161,4 +163,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
-        run: terraform -chdir=Terraform destroy -auto-approve
+        run: terraform -chdir=Terraform destroy -auto-approve -var="KEY_NAME=deployer-${{ github.run_id }}"
