@@ -103,11 +103,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ec2-ip
-          path: ec2_ip.txt          
+          path: ec2_ip_dir        
         
       - name: display
         run: |
-          cat ec2_ip/ec2_ip.txt
+          FILE=$(find ec2_ip_dir -name "ec2_ip.txt")
+          if [ -z "$FILE" ]; then
+             echo "ERROR: File not found"
+             exit 1
+          else
+              echo "Found"
+              cat "$FILE"
+          fi
 
       - name: Setup SSH Key
         run: |
