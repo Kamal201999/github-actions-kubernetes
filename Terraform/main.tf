@@ -92,6 +92,7 @@ resource "aws_instance" "minikube_ec2" {
   }
 
   provisioner "remote-exec" {
+    when = "create"
     inline = [
       "sudo apt-get update -y",
       "sudo apt-get install -y docker.io conntrack socat ebtables",
