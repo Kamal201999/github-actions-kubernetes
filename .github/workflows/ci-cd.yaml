@@ -106,7 +106,8 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@${{ needs.IAC.outputs.ec2_public_ip }}:/home/ubuntu/   # Copy process
            echo "-----STARTED APPLYING THE MANIFESTS-----"
            
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} <<EOF  
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} <<EOF 
+           cd/home/ubuntu
            kubectl apply -f deployment.yaml
            kubectl apply -f service.yaml
           
