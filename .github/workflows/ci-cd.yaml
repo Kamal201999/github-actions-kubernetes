@@ -134,7 +134,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
   destroy:
-    if: failure() && github.event.inputs.confirm_destroy == 'true
+    name: Destroy infra on failure
+    if: failure() && github.event.inputs.confirm_destroy == 'true'
     needs: [IAC, kubernetes, notify]
     runs-on: ubuntu-latest
     steps:
@@ -143,6 +144,9 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+
+      - name: Destruction Starts
+        run: echo "some requried job failed, Destroying infrastructure for check further beacuse of demo purpose. 
 
       - name: Terraform Init
         run: terraform -chdir=Terraform init
