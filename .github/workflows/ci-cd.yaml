@@ -103,6 +103,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ec2-ip
+          path: ec2_ip.txt          
+        
+      - name: display
+        run: |
+          cat ec2_ip.txt
 
       - name: Setup SSH Key
         run: |
