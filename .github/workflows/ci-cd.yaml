@@ -64,7 +64,8 @@ jobs:
 
       - name: Configure SSH Keys from Secrets
         run: |
-          echo "${{ secrets.PRIVATE_KEY }}" > private.pem
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 private.pem
           {
           echo 'PRIVATE_KEY<<EOF'    # Added due to multiline issue
