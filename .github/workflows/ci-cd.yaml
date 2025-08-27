@@ -78,6 +78,7 @@ jobs:
         run: terraform -chdir=Terraform validate
 
       - name: Terraform Apply
+        id: terraform_apply
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -108,10 +109,10 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@${{ needs.IAC.output.ec2_public_ip }}:/home/ubuntu/   # Copy process
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@${{ needs.IAC.outputs.ec2_public_ip }}:/home/ubuntu/   # Copy process
            echo "-----STARTED APPLYING THE MANIFESTS-----"
            
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.output.ec2_public_ip }} <<EOF  
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ needs.IAC.outputs.ec2_public_ip }} <<EOF  
            kubectl apply -f deployment.yaml
            kubectl apply -f service.yaml
           
@@ -163,4 +164,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
-        run: terraform -chdir=Terraform destroy -auto-approve -var="KEY_NAME=deployer-${{ github.run_id }}"
+        run: terraform -chdir=Terraform destroy -auto-approve -var="key_name=${{ env.KEY_NAME }}"
