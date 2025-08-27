@@ -107,7 +107,7 @@ jobs:
         
       - name: display
         run: |
-          cat ec2_ip.txt
+          cat ec2_ip/ec2_ip.txt
 
       - name: Setup SSH Key
         run: |
