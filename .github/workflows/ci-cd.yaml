@@ -134,8 +134,8 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
   destroy:
-    if: ${{ github.event.inputs.confirm_destroy == 'true' }}
-    needs: notify
+    if: failure() && github.event.inputs.confirm_destroy == 'true
+    needs: [IAC, kubernetes, notify]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
