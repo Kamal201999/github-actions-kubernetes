@@ -66,6 +66,7 @@ jobs:
         run: |
           echo "${{ secrets.PRIVATE_KEY }}" > private.pem
           chmod 600 private.pem
+          echo "PRIVATE_KEY=${{ secrets.PRIVATE_KEY }}" >> $GITHUB_ENV
           echo "PUBLIC_KEY=${{ secrets.PUBLIC_KEY }}" >> $GITHUB_ENV
           echo "KEY_NAME=deployer-${{ github.run_id }}" >> $GITHUB_ENV
               
