@@ -154,7 +154,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Destruction Starts
-        run: echo "some requried job failed, Destroying infrastructure for check further beacuse of demo purpose. 
+        run: echo "some requried job failed, Destroying infrastructure for check further beacuse of demo purpose."
 
       - name: Terraform Init
         run: terraform -chdir=Terraform init
