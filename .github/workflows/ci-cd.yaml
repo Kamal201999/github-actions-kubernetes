@@ -90,7 +90,7 @@ jobs:
            -var="public_key=${{ env.PUBLIC_KEY }}" \
            -var="private_key=${{ env.PRIVATE_KEY }}"
 
-          ec2_ip=$(terraform -chdir=Terraform output -raw ec2_public_ip)
+          ec2_ip=$(terraform -chdir=Terraform output -raw ec2_public_ip | tr -d '\n' | tr -d '\r')
           echo "ec2_public_ip=${ec2_ip}" >> $GITHUB_OUTPUT
           echo "-----SUCCESSFULLY COMPLETED CREATION-----"
           
