@@ -49,8 +49,6 @@ jobs:
   IAC:
     needs: build-and-deploy
     runs-on: ubuntu-latest
-    outputs:
-      ec2_public_ip: ${{ steps.terraform_apply.outputs.ec2_public_ip }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
@@ -73,7 +71,6 @@ jobs:
         run: terraform -chdir=Terraform validate
 
       - name: Terraform Apply
-        id: terraform_apply
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -86,75 +83,79 @@ jobs:
            -var="private_key=${{ env.PRIVATE_KEY }}"
 
           ec2_ip=$(terraform -chdir=Terraform output -raw ec2_public_ip | tr -d '\n' | tr -d '\r')
-          echo "ec2_public_ip=${ec2_ip}" >> $GITHUB_OUTPUT
+          echo "$ec2_ip" > ec2_ip.txt
           echo "-----SUCCESSFULLY COMPLETED CREATION-----"
-          
+
+      - name: Upload EC2 IP Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ec2-ip
+          path: ec2_ip.txt
+
   kubernetes:
-   needs: IAC
-   runs-on: ubuntu-latest
-   steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v3
+    needs: IAC
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
 
-    - name: Setup SSH Key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+      - name: Download EC2 IP Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ec2-ip
 
-    - name: Validate and Test SSH Key
-      run: |
-        set -e
-        ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID SSH KEY" && exit 1)
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-        RAW_IP="${{ needs.IAC.outputs.ec2_public_ip }}"
-        EC2_IP=$(echo "$RAW_IP" | tr -d '\n' | tr -d '\r')
+      - name: Validate and Test SSH Key
+        run: |
+          set -e
+          ssh-keygen -l -f ~/.ssh/id_rsa || (echo "INVALID SSH KEY" && exit 1)
 
-        echo "Resolved EC2 IP: $EC2_IP"
-        
-        echo "Trying SSH as ubuntu@${EC2_IP}..."
-        
-        if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP "echo connected"; then
-          echo "Connected as ubuntu"
+          EC2_IP=$(cat ec2_ip.txt | tr -d '\n' | tr -d '\r')
+          echo "Resolved EC2 IP: $EC2_IP"
           
-          echo "USER=ubuntu" >> $GITHUB_ENV
-        else
-          echo "Trying SSH as ec2-user@${EC2_IP}..."
-          
-          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@$EC2_IP "echo connected"; then
-            echo "Connected as ec2-user"
-            echo "USER=ec2-user" >> $GITHUB_ENV
+          echo "Trying SSH as ubuntu@${EC2_IP}..."
+          if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP "echo connected"; then
+            echo "Connected as ubuntu"
+            echo "USER=ubuntu" >> $GITHUB_ENV
           else
-            echo "SSH connection failed"
-            exit 1
+            echo "Trying SSH as ec2-user@${EC2_IP}..."
+            if ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@$EC2_IP "echo connected"; then
+              echo "Connected as ec2-user"
+              echo "USER=ec2-user" >> $GITHUB_ENV
+            else
+              echo "SSH connection failed"
+              exit 1
+            fi
           fi
-        fi
 
-    - name: Deploy to Kubernetes
-      run: |
-        RAW_IP="${{ needs.IAC.outputs.ec2_public_ip }}"
-        EC2_IP=$(echo "$RAW_IP" | tr -d '\n' | tr -d '\r')
-        USER="${{ env.USER }}"
+      - name: Deploy to Kubernetes
+        run: |
+          EC2_IP=$(cat ec2_ip.txt | tr -d '\n' | tr -d '\r')
+          USER="${{ env.USER }}"
 
-        echo "Copying Kubernetes manifests to EC2..."
-        scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ${USER}@${EC2_IP}:/home/${USER}/
+          echo "Copying Kubernetes manifests to EC2..."
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ${USER}@${EC2_IP}:/home/${USER}/
 
-        echo "Starting remote Kubernetes deployment..."
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${USER}@${EC2_IP} <<EOF
-          cd /home/${USER}
-          echo "Applying deployment.yaml..."
-          kubectl apply -f deployment.yaml
+          echo "Starting remote Kubernetes deployment..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${USER}@${EC2_IP} <<EOF
+            cd /home/${USER}
+            echo "Applying deployment.yaml..."
+            kubectl apply -f deployment.yaml
 
-          echo "Applying service.yaml..."
-          kubectl apply -f service.yaml
+            echo "Applying service.yaml..."
+            kubectl apply -f service.yaml
 
-          echo "POD VERIFICATION"
-          kubectl get pods -o wide
+            echo "POD VERIFICATION"
+            kubectl get pods -o wide
 
-          echo "SERVICE VERIFICATION"
-          kubectl get svc -o wide
-        EOF
- 
+            echo "SERVICE VERIFICATION"
+            kubectl get svc -o wide
+EOF
 
   notify:
     needs: [code-analysis, build-and-deploy, IAC, kubernetes]
@@ -177,7 +178,7 @@ jobs:
     needs: [IAC, kubernetes, notify]
     runs-on: ubuntu-latest
     env: 
-     KEY_NAME: deployer-${{ github.run_id }}
+      KEY_NAME: deployer-${{ github.run_id }}
     timeout-minutes: 10
     steps:
       - name: Checkout Repo
@@ -187,7 +188,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Destruction Starts
-        run: echo "some requried job failed, Destroying infrastructure for check further beacuse of demo purpose."
+        run: echo "Some required job failed. Destroying infrastructure due to demo purpose."
 
       - name: Terraform Init
         run: terraform -chdir=Terraform init
@@ -198,3 +199,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: terraform -chdir=Terraform destroy -auto-approve -var="key_name=${{ env.KEY_NAME }}"
+        
