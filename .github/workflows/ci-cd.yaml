@@ -155,7 +155,7 @@ jobs:
 
             echo "SERVICE VERIFICATION"
             kubectl get svc -o wide
-EOF
+          EOF
 
   notify:
     needs: [code-analysis, build-and-deploy, IAC, kubernetes]
