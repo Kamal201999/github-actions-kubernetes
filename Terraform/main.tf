@@ -20,6 +20,7 @@ data "aws_ami" "ubuntu" {
    name = "virtualization-type"
    values = ["hvm"]
 }
+}
 
 # Custom VPC Creation
 resource "aws_vpc" "custom_vpc" {
