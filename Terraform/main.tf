@@ -85,6 +85,7 @@ resource "aws_instance" "minikube_ec2" {
   instance_type          = "t3.medium"
   key_name               = aws_key_pair.deployer.key_name
   subnet_id              = aws_subnet.public_subnet.id
+  availability_zone      = "us-east-1b"
   vpc_security_group_ids = [aws_security_group.minikube_sg.id]
 
   root_block_device {
