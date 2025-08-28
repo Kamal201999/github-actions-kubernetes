@@ -1,29 +1,53 @@
 provider "aws" {
-  # Credentials and region picked from environment variables:
-  # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+  region = "us-east-1"
 }
 
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+# Custom VPC Creation
+resource "aws_vpc" "custom_vpc" {
+  cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "ci-cicd-vpc"
+    Name = "custom-vpc"
   }
 }
 
-resource "aws_subnet" "main" {
-  vpc_id                  = aws_vpc.main.id
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.custom_vpc.id
   cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = true
-  availability_zone       = "us-east-1a"
 
   tags = {
-    Name = "ci-cicd-subnet"
+    Name = "public-subnet"
   }
 }
 
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.custom_vpc.id
+
+  tags = {
+    Name = "igw"
+  }
+}
+
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.custom_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public_rta" {
+  subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
+}
+
+# SSH key pair resource
 resource "aws_key_pair" "deployer" {
   key_name   = var.key_name
   public_key = var.public_key
@@ -32,7 +56,7 @@ resource "aws_key_pair" "deployer" {
 resource "aws_security_group" "minikube_sg" {
   name        = "minikube-sg"
   description = "Allow SSH and Kubernetes"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.custom_vpc.id
 
   ingress {
     from_port   = 22
@@ -57,10 +81,10 @@ resource "aws_security_group" "minikube_sg" {
 }
 
 resource "aws_instance" "minikube_ec2" {
-  ami                    = "ami-0c02fb55956c7d316"
+  ami                    = "ami-0360c520857e3138f"
   instance_type          = "t3.medium"
   key_name               = aws_key_pair.deployer.key_name
-  subnet_id              = aws_subnet.main.id
+  subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.minikube_sg.id]
 
   root_block_device {
@@ -72,17 +96,17 @@ resource "aws_instance" "minikube_ec2" {
       "sudo apt-get update -y",
       "sudo apt-get install -y docker.io conntrack socat ebtables",
       "sudo usermod -aG docker ubuntu",
-      "curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64",
+      "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",  # latest version
       "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
-      "sudo minikube start --driver=none",
-      "curl -LO https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl",
-      "chmod +x kubectl && sudo mv kubectl /usr/local/bin/"
+      "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
+      "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
+      "bash -c 'newgrp docker <<EOF\nminikube start --driver=docker --kubernetes-version=v1.33.3\nEOF'"
     ]
 
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      private_key = file(var.private_key_path)
+      private_key = file("~/.ssh/id_rsa")
       host        = self.public_ip
       timeout     = "2m"
     }

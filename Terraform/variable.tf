@@ -4,11 +4,12 @@ variable "key_name" {
 }
 
 variable "public_key" {
-  description = "Public key contents for the EC2 key pair"
+  description = "Public SSH key contents (single-line OpenSSH format)"
   type        = string
 }
 
-variable "private_key_path" {
-  description = "Private key contents for connecting EC2"
+variable "private_key" {
+  description = "Private SSH key contents (PEM format)"
   type        = string
+  sensitive   = true
 }
