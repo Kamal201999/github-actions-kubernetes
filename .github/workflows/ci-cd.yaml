@@ -127,10 +127,20 @@ jobs:
           echo "Connecting to $EC2_IP"
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$EC2_IP <<EOF
             cd /home/ubuntu
+            echo "========== NODE CHECK =========="
+            kubectl get nodes -o wide
+
+            echo "=========== Applying Manifests =========="
             kubectl apply -f deployment.yaml
             kubectl apply -f service.yaml
+
+            for i in 1 2 3 4 5; do
+             echo "========== POD's CHECK =========="
             kubectl get pods -o wide
+            echo "========== SERVICE's CHECK =========="
             kubectl get svc -o wide
+            sleep 10
+          done
           EOF
 
 
@@ -148,34 +158,3 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-
-  destroy:
-    name: Destroy infra on failure
-    if: failure()
-    needs: [Infra-creation, kubernetes-deployment, Notification]
-    runs-on: ubuntu-latest
-    env: 
-      KEY_NAME: deployer-${{ github.run_id }}
-    timeout-minutes: 10
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Destruction Starts
-        run: echo "Some required job failed. Destroying infrastructure due to demo purpose."
-
-      - name: Terraform Init
-        run: terraform -chdir=Terraform init
-
-      - name: Terraform Destroy
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: terraform -chdir=Terraform destroy -auto-approve \
-          -var="key_name=${{ env.KEY_NAME }}" \
-          -var="private_key=${{ secrets.PRIVATE_KEY }}"      
-        
