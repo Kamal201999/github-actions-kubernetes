@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 # Get all available AZ's
-data "aws_" "available" {
+data "aws_availability_zones" "available" {
   state = "available"
 }
 
