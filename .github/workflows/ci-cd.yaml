@@ -110,13 +110,17 @@ jobs:
         run: |
           EC2_IP=$(sed -n 's/.*stdout:[[:space:]]*\([0-9.]*\).*/\1/p' ec2_data/ec2_ip.txt)
           echo "EC2 IP extracted: $EC2_IP"
-          echo "EC2_IP=$EC2_IP" >> $GITHUB_ENV
+          echo "EC2_IP=$EC2_IP" >> $GITHUB_ENV       
 
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+
+      - name: Copy Files
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa deployment.yaml service.yaml ubuntu@$EC2_IP:/home/ubuntu/
 
       - name: SSH and Deploy to Kubernetes
         run: |
