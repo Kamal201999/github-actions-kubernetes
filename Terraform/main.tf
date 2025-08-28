@@ -1,5 +1,24 @@
 provider "aws" {
-  region = "us-east-1"
+  region = "us-east-1a"
+}
+
+# Get all available AZ's
+data "aws_" "available" {
+  state = "available"
+
+# Canonical
+data "aws_ami" "ubuntu" {
+  most_recent=true
+  owners = ["099720109477"] 
+
+  filter {
+   name = "name"
+   values = ["ubuntu/images/hvm-ssd/ubuntu-noble-24.04-amd64-server-*"]
+}
+
+  filter {
+   name = "virtualization-type"
+   values = ["hvm"]
 }
 
 # Custom VPC Creation
@@ -7,7 +26,7 @@ resource "aws_vpc" "custom_vpc" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "custom-vpc"
+    Name = "minikube-vpc"
   }
 }
 
@@ -81,8 +100,9 @@ resource "aws_security_group" "minikube_sg" {
 }
 
 resource "aws_instance" "minikube_ec2" {
-  ami                    = "ami-0360c520857e3138f"
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.medium"
+  availability_zone      = data.aws_availability_zones.available.names[0]
   key_name               = aws_key_pair.deployer.key_name
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.minikube_sg.id]
@@ -112,7 +132,7 @@ resource "aws_instance" "minikube_ec2" {
     }
   }
 
-  tags = {
+  tags = 
     Name = "minikube-ec2"
   }
 }
