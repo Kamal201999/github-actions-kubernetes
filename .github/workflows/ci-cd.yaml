@@ -149,6 +149,17 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Set status message
+        id: set_status
+        run: |
+          echo "status=SUCCESS" >> $GITHUB_OUTPUT
+          for job in code-analysis build-and-deploy Infra-creation kubernetes-deployment; do
+           if [ "${{ needs[$job].result }}" != "success" ]; then
+             echo "Status=FAILURE" >> $GITHUB_OUTPUT
+            exit 0
+           fi
+          done 
+     
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.24.0
         with:
