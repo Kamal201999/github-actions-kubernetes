@@ -1,10 +1,11 @@
 provider "aws" {
-  region = "us-east-1a"
+  region = "us-east-1"
 }
 
 # Get all available AZ's
 data "aws_" "available" {
   state = "available"
+}
 
 # Canonical
 data "aws_ami" "ubuntu" {
@@ -133,7 +134,7 @@ resource "aws_instance" "minikube_ec2" {
     }
   }
 
-  tags = 
+  tags = {
     Name = "minikube-ec2"
   }
 }
