@@ -46,7 +46,7 @@ jobs:
           docker pull $IMAGE_NAME:${{ github.sha }}
           echo "Docker image ready for Kubernetes deployment"
 
-  IAC:
+  Infra-creation:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
@@ -92,8 +92,8 @@ jobs:
           name: ec2-ip
           path: ec2_ip.txt
 
-  kubernetes:
-    needs: IAC
+  kubernetes-deployment:
+    needs: Infra-creation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -130,8 +130,8 @@ jobs:
           EOF
 
 
-  notify:
-    needs: [code-analysis, build-and-deploy, IAC, kubernetes]
+  Notification:
+    needs: [code-analysis, build-and-deploy, Infra-creation, kubernetes-deployment]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -148,7 +148,7 @@ jobs:
   destroy:
     name: Destroy infra on failure
     if: failure()
-    needs: [IAC, kubernetes, notify]
+    needs: [Infra-creation, kubernetes-deployment, Notification]
     runs-on: ubuntu-latest
     env: 
       KEY_NAME: deployer-${{ github.run_id }}
@@ -171,5 +171,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
-        run: terraform -chdir=Terraform destroy -auto-approve -var="key_name=${{ env.KEY_NAME }}"
+        run: terraform -chdir=Terraform destroy -auto-approve \
+          -var="key_name=${{ env.KEY_NAME }}" \
+          -var="private_key=${{ secrets.PRIVATE_KEY }}"      
         
