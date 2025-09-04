@@ -103,8 +103,8 @@ resource "aws_instance" "minikube_ec2" {
       "sudo rm -f /root/.minikube/cache/linux/amd64/*/*.lock",
 
       # Run sysctl to allow minikube to access locked files 
-      "sudo sysctl fs.protected_regular=0 \
-       sudo rm -rf /tmp/juju-*",
+      "sudo sysctl fs.protected_regular=0",
+      "sudo rm -rf /tmp/juju-*",
 
       # Configure & start containerd
       "sudo mkdir -p /etc/containerd",
