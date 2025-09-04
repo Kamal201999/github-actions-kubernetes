@@ -100,7 +100,8 @@ resource "aws_instance" "minikube_ec2" {
       "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
       "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
       "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
-      "bash -c 'newgrp docker <<EOF\nminikube start --driver=docker --kubernetes-version=v1.33.3\nEOF'"
+      "sudo minikube start --driver=none  --kubernetes-version=v1.33.3\nEOF"
+#     "bash -c 'newgrp docker <<EOF\nminikube start --driver=docker --kubernetes-version=v1.33.3\nEOF'"
     ]
 
     connection {
