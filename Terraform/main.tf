@@ -92,28 +92,37 @@ resource "aws_instance" "minikube_ec2" {
   }
 
   provisioner "remote-exec" {
-    inline = [
-      "sudo apt-get update -y",
-      "sudo apt-get install -y docker.io containerd conntrack socat ebtables -y",
-      "sudo systemctl enable containerd",
-      "sudo systemctl start containerd",
-    # "sudo usermod -aG docker ubuntu",
-      "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",  # latest version
-      "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
-      "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
-      "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
-      "sudo minikube start --driver=none  --container-runtime=containerd --kubernetes-version=v1.33.3"
-#     "bash -c 'newgrp docker <<EOF\nminikube start --driver=docker --kubernetes-version=v1.33.3\nEOF'"
-    ]
+  inline = [
+    "sudo apt-get update -y",
+    "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget",
+    "sudo systemctl enable containerd",
+    "sudo systemctl start containerd",
 
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = file("~/.ssh/id_rsa")
-      host        = self.public_ip
-      timeout     = "2m"
-    }
+    # Install crictl (required for Kubernetes v1.33.3)
+    "VERSION=\"v1.28.0\" && curl -LO https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz",
+    "sudo tar zxvf crictl-*.tar.gz -C /usr/local/bin",
+    "rm -f crictl-*.tar.gz",
+
+    # Install Minikube
+    "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",
+    "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
+
+    # Install kubectl
+    "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
+    "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
+
+    # Start Minikube with containerd runtime
+    "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3"
+  ]
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("~/.ssh/id_rsa")
+    host        = self.public_ip
+    timeout     = "5m"
   }
+}
 
   tags = {
     Name = "minikube-ec2"
