@@ -127,7 +127,7 @@ resource "aws_instance" "minikube_ec2" {
       "rm -f kubectl",
 
       # Start Minikube with containerd and none driver
-      "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3 --force"
+      "sudo env HOME=/root  minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3 --force"
     ]
 
     connection {
