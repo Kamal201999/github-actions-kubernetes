@@ -96,7 +96,7 @@ resource "aws_instance" "minikube_ec2" {
       "sudo apt-get update -y",
       "sudo apt-get install -y docker.io containerd conntrack socat ebtables -y",
       "sudo systemctl enable containerd",
-      "sudo systemctl start containerd"'
+      "sudo systemctl start containerd",
     # "sudo usermod -aG docker ubuntu",
       "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",  # latest version
       "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
