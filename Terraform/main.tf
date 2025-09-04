@@ -99,6 +99,13 @@ resource "aws_instance" "minikube_ec2" {
       # Install required dependencies
       "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget apt-transport-https",
 
+      # Clear any  exixting minikube lock files
+      "sudo rm -f /root/.minikube/cache/linux/amd64/*/*.lock",
+
+      # Run sysctl to allow minikube to access locked files 
+      "sudo sysctl fs.protected_regular=0 \
+       sudo rm -rf /tmp/juju-*",
+
       # Configure & start containerd
       "sudo mkdir -p /etc/containerd",
       "sudo containerd config default | sudo tee /etc/containerd/config.toml",
