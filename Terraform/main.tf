@@ -56,7 +56,7 @@ resource "aws_key_pair" "deployer" {
 resource "aws_security_group" "minikube_sg" {
   name        = "minikube-sg"
   description = "Allow SSH and Kubernetes"
-  vpc_id = aws_vpc.custom_vpc.id
+  vpc_id      = aws_vpc.custom_vpc.id
 
   ingress {
     from_port   = 22
@@ -92,50 +92,52 @@ resource "aws_instance" "minikube_ec2" {
   }
 
   provisioner "remote-exec" {
-  inline = [
-    # Update packages
-    "sudo apt-get update -y",
+    inline = [
+      # Update packages
+      "sudo apt-get update -y",
 
-    # Install required dependencies
-    "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget apt-transport-https",
+      # Install required dependencies
+      "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget apt-transport-https",
 
-    # Enable & start containerd
-    "sudo systemctl enable containerd",
-    "sudo systemctl start containerd",
+      # Configure & start containerd
+      "sudo mkdir -p /etc/containerd",
+      "sudo containerd config default | sudo tee /etc/containerd/config.toml",
+      "sudo systemctl restart containerd",
+      "sudo systemctl enable containerd",
 
-    # Install crictl (needed by Kubernetes v1.24+)
-    "VERSION=\"v1.28.0\" && curl -LO https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz",
-    "sudo tar zxvf crictl-*.tar.gz -C /usr/local/bin",
-    "rm -f crictl-*.tar.gz",
+      # Install crictl (needed by Kubernetes v1.24+)
+      "VERSION=\"v1.28.0\" && curl -LO https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz",
+      "sudo tar zxvf crictl-*.tar.gz -C /usr/local/bin",
+      "rm -f crictl-*.tar.gz",
 
-    # Install CNI plugins (needed for --driver=none)
-    "CNI_VERSION=\"v1.3.0\" && curl -LO https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION/cni-plugins-linux-amd64-$CNI_VERSION.tgz",
-    "sudo mkdir -p /opt/cni/bin",
-    "sudo tar zxvf cni-plugins-linux-amd64-*.tgz -C /opt/cni/bin",
-    "rm -f cni-plugins-linux-amd64-*.tgz",
+      # Install CNI plugins (needed for --driver=none)
+      "CNI_VERSION=\"v1.3.0\" && curl -LO https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION/cni-plugins-linux-amd64-$CNI_VERSION.tgz",
+      "sudo mkdir -p /opt/cni/bin",
+      "sudo tar zxvf cni-plugins-linux-amd64-*.tgz -C /opt/cni/bin",
+      "rm -f cni-plugins-linux-amd64-*.tgz",
 
-    # Install Minikube
-    "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",
-    "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
-    "rm -f minikube-linux-amd64",
+      # Install Minikube
+      "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",
+      "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
+      "rm -f minikube-linux-amd64",
 
-    # Install kubectl
-    "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
-    "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
-    "rm -f kubectl",
+      # Install kubectl
+      "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
+      "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
+      "rm -f kubectl",
 
-    # Start Minikube with containerd and none driver
-    "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3 --force"
-  ]
+      # Start Minikube with containerd and none driver
+      "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3 --force"
+    ]
 
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file("~/.ssh/id_rsa")
-    host        = self.public_ip
-    timeout     = "5m"
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = file("~/.ssh/id_rsa")
+      host        = self.public_ip
+      timeout     = "5m"
+    }
   }
-}
 
   tags = {
     Name = "minikube-ec2"
