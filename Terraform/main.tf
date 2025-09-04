@@ -93,26 +93,39 @@ resource "aws_instance" "minikube_ec2" {
 
   provisioner "remote-exec" {
   inline = [
+    # Update packages
     "sudo apt-get update -y",
-    "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget",
+
+    # Install required dependencies
+    "sudo apt-get install -y docker.io containerd conntrack socat ebtables curl wget apt-transport-https",
+
+    # Enable & start containerd
     "sudo systemctl enable containerd",
     "sudo systemctl start containerd",
 
-    # Install crictl (required for Kubernetes v1.33.3)
+    # Install crictl (needed by Kubernetes v1.24+)
     "VERSION=\"v1.28.0\" && curl -LO https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz",
     "sudo tar zxvf crictl-*.tar.gz -C /usr/local/bin",
     "rm -f crictl-*.tar.gz",
 
+    # Install CNI plugins (needed for --driver=none)
+    "CNI_VERSION=\"v1.3.0\" && curl -LO https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION/cni-plugins-linux-amd64-$CNI_VERSION.tgz",
+    "sudo mkdir -p /opt/cni/bin",
+    "sudo tar zxvf cni-plugins-linux-amd64-*.tgz -C /opt/cni/bin",
+    "rm -f cni-plugins-linux-amd64-*.tgz",
+
     # Install Minikube
     "curl -LO https://storage.googleapis.com/minikube/releases/v1.34.0/minikube-linux-amd64",
     "sudo install minikube-linux-amd64 /usr/local/bin/minikube",
+    "rm -f minikube-linux-amd64",
 
     # Install kubectl
     "curl -LO https://dl.k8s.io/release/v1.33.3/bin/linux/amd64/kubectl",
     "chmod +x kubectl && sudo mv kubectl /usr/local/bin/",
+    "rm -f kubectl",
 
-    # Start Minikube with containerd runtime
-    "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3"
+    # Start Minikube with containerd and none driver
+    "sudo minikube start --driver=none --container-runtime=containerd --kubernetes-version=v1.33.3 --force"
   ]
 
   connection {
